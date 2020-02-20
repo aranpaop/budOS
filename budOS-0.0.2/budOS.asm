@@ -1,4 +1,4 @@
-; hello-os
+; budOS
 ; TAB=4
 ; 下面实现FAT12格式软盘代码
 DB 0xeb, 0x4e, 0x90
