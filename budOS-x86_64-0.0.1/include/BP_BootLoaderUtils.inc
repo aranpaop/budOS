@@ -39,7 +39,7 @@ BPFunc_ConvertLBA2CHS:
     mov bl, byte [BPB_SecPerTrk]
     div bl
     mov dh, al
-    and dh, 0x0001
+    and dh, 0x01
     shr al, 1
     mov ch, al
     inc ah
@@ -56,29 +56,71 @@ BPFunc_ReadOneSector:
     mov dl, [BS_DrvNum]
     mov bx, TempBufferAddress
     int 0x13
-    jc Label_ReadSectorFail
+    ;jc Label_ReadSectorFail
     ret
 
-ReadSectorErr db "Read Sector Fail"
-Label_ReadSectorFail:
-    mov bp, ReadSectorFail
-    mov cx, Label_ReadSectorFail - ReadSectorErr
+;ReadSectorErr db "Read Sector Fail"
+;Label_ReadSectorFail:
+    ;mov bp, ReadSectorErr
+    ;mov cx, Label_ReadSectorFail - ReadSectorErr
+    ;mov dx, 0x1800
+    ;call BPFunc_DisplayString
+    ;jmp $
+
+;======= BPFunc_SearchLoader()
+;@param None
+LoaderFileName db "LOADER  BIN"
+BPFunc_SearchLoader:
+    mov cx, RootDirSectors
+    mov ax, SectorNumOfRootDirStart
+
+Label_SearchInRootDir:
+    cmp cx, 0
+    jz Label_SearchLoaderFail
+    dec cx
+    push cx
+    push ax
+    call BPFunc_ReadOneSector
+    mov si, LoaderFileName
+    mov di, TempBufferAddress
+    cld
+    mov dx, 16 ;512 / 32
+
+Label_SearchForLoader:
+    cmp dx, 0
+    jz Label_SearchNextSector
+    dec dx
+    mov cx, 11
+
+Label_CmpFileName:
+    cmp cx, 0
+    jz Label_FoundLoader
+    dec cx
+    cmp al, byte [es:di]
+    jnz Label_SearchNextIndex
+    inc di
+    jmp Label_CmpFileName
+
+Label_SearchNextIndex:
+    and di, 0xffe0
+    add di, 0x20
+    jmp Label_SearchForLoader
+
+Label_SearchNextSector:
+    pop ax
+    inc ax
+    pop cx
+    jmp Label_SearchInRootDir
+
+SearchLoaderErr db "Search Loader Fail"
+Label_SearchLoaderFail:
+    mov bp, SearchLoaderErr
+    mov cx, Label_SearchLoaderFail - SearchLoaderErr
     mov dx, 0x1800
     call BPFunc_DisplayString
     jmp $
 
-;======= BPFunc_SearchLoader()
-LoaderFileName db "BP_LOADER BIN"
-BPFunc_SearchLoader:
-    mov cx, RootDirSectors
-    mov ax, SectorNumOfRootDirStart
-    cmp cx, 0
-    jz Label_NoLoader
-    dec cx
-    push cx
-
-    call BPFunc_ReadOneSector
-
-Label_SearchForLoader:
-    cld
-    mov di, TempBufferAddress
+Label_FoundLoader:
+    pop ax
+    pop cx
+    ret

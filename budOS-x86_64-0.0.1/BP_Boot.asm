@@ -30,6 +30,8 @@ Label_BootStart:
     mov cx, Label_BootStart - BootStartMessage
     call BPFunc_DisplayString
 
+    call BPFunc_SearchLoader
+
     jmp $
 
     times 510 - ($ - $$) db 0
