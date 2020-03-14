@@ -6,20 +6,15 @@
 %include "BP_CommonDefinitions.inc"
 %include "BP_BootLoaderUtils.inc"
 
-BaseOfStack       equ 0x7c00
-BaseOfLoader      equ 0x1000
-OffsetOfLoader    equ 0
-TempBufferAddress equ 0x8000
-
-RootDirSectors          equ 14
-SectorNumOfRootDirStart equ 19
-SectorNumOfFAT1Start    equ 1
-SectorBalance           equ 17
-
 BootStartMessage db "Start Boot..."
 
 Label_BootStart:
-    mov sp, BaseOfStack
+    mov ax, cs
+    mov ds, ax
+    mov es, ax
+    mov ax, 0
+    mov ss, ax
+    mov sp, 0x7c00
 
     call BPFunc_ClearScreen
 
@@ -32,7 +27,9 @@ Label_BootStart:
 
     call BPFunc_SearchLoader
 
-    jmp $
+    call BPFunc_ReadFileByInitClusterNumber
+
+    jmp BaseOfLoader:OffsetOfLoader
 
     times 510 - ($ - $$) db 0
     dw 0xaa55

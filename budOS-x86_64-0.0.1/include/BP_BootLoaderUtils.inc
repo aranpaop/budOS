@@ -47,14 +47,14 @@ BPFunc_ConvertLBA2CHS:
     pop bx
     ret
 
-;======= BPFunc_ReadOneSector(LBA)
+;======= BPFunc_ReadOneSector(LBA, addr)
 ;@param ax: LBA
+;@param bx: adddress in SRAM
 ;@return None
 BPFunc_ReadOneSector:
     call BPFunc_ConvertLBA2CHS
     mov ax, 0x0201
     mov dl, [BS_DrvNum]
-    mov bx, TempBufferAddress
     int 0x13
     ;jc Label_ReadSectorFail
     ret
@@ -69,6 +69,7 @@ BPFunc_ReadOneSector:
 
 ;======= BPFunc_SearchLoader()
 ;@param None
+;@return cx: initial cluster number
 LoaderFileName db "LOADER  BIN"
 BPFunc_SearchLoader:
     mov cx, RootDirSectors
@@ -80,22 +81,24 @@ Label_SearchInRootDir:
     dec cx
     push cx
     push ax
+    mov bx, TempBufferAddress
     call BPFunc_ReadOneSector
     mov si, LoaderFileName
     mov di, TempBufferAddress
     cld
-    mov dx, 16 ;512 / 32
+    mov dx, 0 ;512 / 32
 
 Label_SearchForLoader:
-    cmp dx, 0
+    cmp dx, 16 ;512 / 32
     jz Label_SearchNextSector
-    dec dx
+    inc dx
     mov cx, 11
 
 Label_CmpFileName:
     cmp cx, 0
     jz Label_FoundLoader
     dec cx
+    lodsb
     cmp al, byte [es:di]
     jnz Label_SearchNextIndex
     inc di
@@ -123,4 +126,93 @@ Label_SearchLoaderFail:
 Label_FoundLoader:
     pop ax
     pop cx
+    and di, 0xffe0
+    add di, 0x1a
+    mov cx, word [es:di]
     ret
+
+;======= BPFunc_DisplayOneCharacter(char)
+;@param al: charactor
+;@return None
+BPFunc_DisplayOneCharacter:
+    mov ah, 0x0e
+    mov bx, 0x0002
+    int 0x10
+    ret
+
+;======= BPFunc_GetNextCluster(currentClusterNum)
+;@param ax: current cluster number
+;@return ax: next cluster number
+BPFunc_GetNextCluster:
+    push ax
+    mov ax, 0
+    mov es, ax
+    pop ax
+    mov cx, 0
+    mov bx, 3
+    mul bx
+    mov bx, 2
+    div bx
+    cmp dx, 0
+    jz Label_Even
+    mov cx, 1
+
+Label_Even:
+    xor dx, dx
+    mov bx, [BPB_BytesPerSec]
+    div bx
+    push dx
+    push cx
+    mov bx, TempBufferAddress
+    add ax, SectorNumOfFAT1Start
+    call BPFunc_ReadOneSector
+    inc ax
+    call BPFunc_ReadOneSector
+    pop cx
+    pop dx
+    add bx, dx
+    mov ax, [es:bx]
+    cmp cx, 1
+    jnz Label_Even2
+    shr ax, 4
+
+Label_Even2:
+    and ax, 0x0fff
+    ret
+
+;======= BPFunc_ReadFileByInitClusterNumber(initClusterNumber)
+;@param cx: initial cluster number
+;@return None
+BPFunc_ReadFileByInitClusterNumber:
+    push cx
+    mov ax, BaseOfLoader
+    mov es, ax
+    mov bx, OffsetOfLoader
+    mov ax, cx
+
+Label_GoOnReading:
+    add ax, RootDirSectors
+    add ax, SectorBalance
+    push ax
+    push bx
+    mov al, '.'
+    call BPFunc_DisplayOneCharacter
+    pop bx
+    pop ax
+    call BPFunc_ReadOneSector
+    pop ax
+    push es
+    push bx
+    call BPFunc_GetNextCluster
+    pop bx
+    pop es
+    cmp ax, 0x0fff
+    jz Label_FileLoaded
+    push ax
+    add bx, [BPB_BytesPerSec]
+    jmp Label_GoOnReading
+
+Label_FileLoaded:
+    ret
+    
+

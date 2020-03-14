@@ -18,3 +18,12 @@
     BS_VolID        dd 0
     BS_VolLab       db 'boot loader'
     BS_FileSysType  db 'FAT12   '
+
+BaseOfLoader      equ 0x1000
+OffsetOfLoader    equ 0
+TempBufferAddress equ 0x8000
+
+RootDirSectors          equ 14
+SectorNumOfRootDirStart equ 19
+SectorNumOfFAT1Start    equ 1
+SectorBalance           equ 17
